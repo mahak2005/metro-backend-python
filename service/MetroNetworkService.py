@@ -15,8 +15,9 @@ from model.MetroStop import MetroStop
 from model.MetroStopTime import MetroStopTime
 from model.MetroTrip import MetroTrip
 from EdgeWeightCalculator import EdgeWeightCalculator
-import csv
 from collections import defaultdict, deque
+from math import radians, sin, cos, sqrt, atan2
+
 
 class MetroNetworkService:
 
@@ -122,7 +123,7 @@ class MetroNetworkService:
             pathWithNames = [self.stopIdToName.get(stopId, stopId) for stopId in path]
             if choice == 1:
                 return f"The shortest path from {self.stopIdToName.get(startStopId)} to {self.stopIdToName.get(endStopId)} is:\n{' -> '.join(pathWithNames)}.\nThe shortest distance from {self.stopIdToName.get(startStopId)} to {self.stopIdToName.get(endStopId)} is {distances[endStopId]}"
-            else:
+            elif choice==2:
                 return f"The shortest path from {self.stopIdToName.get(startStopId)} to {self.stopIdToName.get(endStopId)} is:\n{' -> '.join(pathWithNames)}.\nThe shortest time from {self.stopIdToName.get(startStopId)} to {self.stopIdToName.get(endStopId)} is {distances[endStopId]}"
         else:
             return f"No path found between {startStopId} and {endStopId}"

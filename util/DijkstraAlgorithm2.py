@@ -1,9 +1,10 @@
 from collections import deque
 from datetime import datetime
 from util.DijkstraAlgorithm import DijkstraAlgorithm
+from datetime import datetime
 class DijkstraAlgorithm2:
-    TIME_FORMATTER = "%H:%M:%S"  # Equivalent to DateTimeFormatter in Java
-
+    TIME_FORMATTER = "%H:%M:%S"
+    MAX_EDGE_WEIGHT = 1.7976931348623157E308
     def dijkstra(self, graph, startStopId, stopTimes):
         # Initialize distance map and priority queue
         distances = {}
@@ -15,12 +16,10 @@ class DijkstraAlgorithm2:
             distances[stopId] = float('inf')
             DijkstraAlgorithm.previousStops[stopId] = None
         distances[startStopId] = 0.0
-        priorityQueue.append(StopDistance(startStopId, 0.0))
+        priorityQueue.append((0.0, startStopId))
 
         while priorityQueue:
-            current = min(priorityQueue, key=lambda x: x.distance)  # Get the stop with the smallest distance
-            priorityQueue.remove(current)
-            currentStopId = current.getStopId()
+            currentDistance, currentStopId = priorityQueue.pop(0)
 
             if currentStopId in visited:
                 continue
@@ -30,13 +29,20 @@ class DijkstraAlgorithm2:
             for neighborStopId, travelTime in graph.get_neighbors(currentStopId).items():
                 # Compute edge weight (travelTime + stopTime at the current stop)
                 edgeWeight = travelTime + self.getStopTime(stopTimes, currentStopId)
-                newDist = distances[currentStopId] + edgeWeight
+                newDist = currentDistance + edgeWeight
 
                 if newDist < distances[neighborStopId]:
                     distances[neighborStopId] = newDist
                     DijkstraAlgorithm.previousStops[neighborStopId] = currentStopId
-                    priorityQueue.append(StopDistance(neighborStopId, newDist))
-
+                    priorityQueue.append((newDist, neighborStopId))
+            # for neighborStopId, travelTime in graph.get_neighbors(currentStopId).items():
+            #     edgeWeight = travelTime + self.getStopTime(stopTimes, currentStopId)
+            #     newDist = currentDistance + edgeWeight
+            #     print(f"Processing {currentStopId} -> {neighborStopId}: edgeWeight={edgeWeight}, newDist={newDist}")
+            #     if newDist < distances[neighborStopId]:
+            #         distances[neighborStopId] = newDist
+            #         DijkstraAlgorithm.previousStops[neighborStopId] = currentStopId
+            #         priorityQueue.append((newDist, neighborStopId))
         return distances
 
     def getStopTime(self, stopTimes, stopId):
@@ -44,40 +50,43 @@ class DijkstraAlgorithm2:
         for stopTimeData in stopTimes.values():
             if stopTimeData.getStopId() == stopId:
                 try:
-                    arrival = datetime.strptime(stopTimeData.getArrivalTime(), self.TIME_FORMATTER)
-                    departure = datetime.strptime(stopTimeData.getDepartureTime(), self.TIME_FORMATTER)
-                    duration = (departure - arrival).seconds / 60.0  # Convert duration to minutes
-                    totalStopTime += duration
+                    arrival_time_str = str(stopTimeData.getArrivalTime())
+                    departure_time_str = str(stopTimeData.getDepartureTime())
+                    arrival = datetime.strptime(arrival_time_str, DijkstraAlgorithm2.TIME_FORMATTER).time()
+                    departure = datetime.strptime(departure_time_str, DijkstraAlgorithm2.TIME_FORMATTER).time()
+
+                    arrival_minutes = arrival.hour * 60 + arrival.minute + arrival.second / 60
+                    departure_minutes = departure.hour * 60 + departure.minute + departure.second / 60
+                    duration_minutes = departure_minutes - arrival_minutes
+
+                    if duration_minutes > 0:
+                        totalStopTime += duration_minutes  # Add to total stop time
                 except ValueError as e:
-                    print(f"Error parsing time for stop ID {stopId}: {str(e)}")
+                    print(f"Error parsing time for stop ID {stopId}: {e}")
         return totalStopTime
 
+
     def getPath(self, endStopId):
-        path = deque()
+        path = []
         step = endStopId
 
         while step is not None:
-            path.appendleft(step)  # Add elements at the front instead of reversing later
+            path.insert(0, step)  
             step = DijkstraAlgorithm.previousStops.get(step)
 
-        return list(path)  # Convert to List if needed
+        return path
 
     # Helper class to store stop and distance
-class StopDistance:
-    def __init__(self, stopId, distance):
-        self.stopId = stopId
-        self.distance = distance
+    class StopDistance:
+        def __init__(self, stopId, distance):
+            self.stopId = stopId
+            self.distance = distance
 
-    def getStopId(self):
-        return self.stopId
+        def getStopId(self):
+            return self.stopId
 
-    def getDistance(self):
-        return self.distance
-
-    # To enable comparison of StopDistance objects based on distance for priority queue
-    def __lt__(self, other):
-        return self.distance < other.distance
-
+        def getDistance(self):
+            return self.distance
 
 
 # # Example of how to use DijkstraAlgorithm2

@@ -101,23 +101,43 @@ class MetroNetworkAnalysis:
                     print(f"No path found between {start_stop_id} and {end_stop_id}")
 
             elif choice == 2:  # Time-based Dijkstra
-                for shape_sequence in shape_groups.values():
+                for entry in shape_groups.items():
+                    shape_sequence = entry[1]
                     previous_stop = None
-                    for shape in shape_sequence:
-                        current_stop = MetroNetworkAnalysis.findClosestStop(stops, shape.getLatitude(), shape.getLongitude(), 3.0)
-                        if current_stop:
-                            if previous_stop and previous_stop.getStopId() != current_stop.getStopId():
+
+                    for i in range(len(shape_sequence)):
+                        current_shape = shape_sequence[i]
+
+                        # Find the closest stop to the current shape point
+                        current_stop = MetroNetworkAnalysis.findClosestStop(stops, current_shape.latitude, current_shape.longitude, 3.0)  # 0.1 km tolerance
+
+                        # If a valid stop is found
+                        if current_stop is not None:
+                            # Avoid self-loops by checking if the current stop and previous stop are not the same
+                            if previous_stop is not None and previous_stop.getStopId() != current_stop.getStopId():
                                 edge_weight = EdgeWeightCalculator.getEdgeWeight(stop_times, previous_stop.getStopId(), current_stop.getStopId())
                                 graph.addEdge(previous_stop.getStopId(), current_stop.getStopId(), edge_weight)
-                            previous_stop = current_stop
+                                # print(f"Added edge between: {previous_stop.get_stop_name()} and {current_stop.get_stop_name()} with weight: {edge_weight}")
+
+                            previous_stop = current_stop  # Move to the next stop
+
+                        else:
+                            # print(f"No stop found for current shape point: lat = {current_shape.latitude}, lon = {current_shape.longitude}")
+                            pass
+
                 MetroNetworkAnalysis.addManualEdge(stops, graph)
 
                 dijkstra = DijkstraAlgorithm2()
                 distances = dijkstra.dijkstra(graph, start_stop_id, stop_times)
                 path = dijkstra.getPath(end_stop_id)
 
-                if distances.get(end_stop_id) != float("inf"):
-                    path_with_names = [stop_id_to_name.get(stop_id, stop_id) for stop_id in path]
+                if distances.get(end_stop_id) != float('inf'):
+                    # Convert path IDs to stop names
+                    path_with_names = []
+                    for stop_id in path:
+                        stop_name = stop_id_to_name.get(stop_id)
+                        path_with_names.append(stop_name if stop_name else stop_id)  # Add stop name or ID if name not found
+
                     print(f"The shortest time from {stop_id_to_name.get(start_stop_id)} to {stop_id_to_name.get(end_stop_id)} is {distances.get(end_stop_id)}")
                     print(f"The path is: {' -> '.join(path_with_names)}")
                 else:

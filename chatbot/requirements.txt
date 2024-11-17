@@ -1,0 +1,4 @@
+flask
+pandas
+nltk
+flask-cors

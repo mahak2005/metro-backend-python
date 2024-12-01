@@ -1,27 +1,19 @@
 import pandas as pd
 import nltk
 import os
-from nltk.chat.util import reflections
+from nltk.chat.util import Chat, reflections
 from flask import Flask, request, jsonify
 import re
-from nltk.tokenize import word_tokenize
-from nltk.corpus import wordnet
 
-# Ensure required NLTK packages are downloaded
-nltk.download('punkt')
-nltk.download('wordnet')
-
-# Load CSV Data
+# Step 1: Load CSV Data
 routes_df = pd.read_csv("data/route.csv")
-stations_df = pd.read_csv("data/stop.csv")
-stoptimes_df = pd.read_csv("data/stop_time.csv")
+stations_df = pd.read_csv("data/stop.csv")  
+stoptimes_df = pd.read_csv("data/stop_time.csv")  
 
 # Function to get route information
 def get_route_info(route_name):
-    route = routes_df[
-        routes_df['route_short_name'].str.contains(route_name, case=False) | 
-        routes_df['route_long_name'].str.contains(route_name, case=False)
-    ]
+    route = routes_df[routes_df['route_short_name'].str.contains(route_name, case=False) | 
+                      routes_df['route_long_name'].str.contains(route_name, case=False)]
     if not route.empty:
         return f"Route: {route['route_long_name'].values[0]} ({route['route_short_name'].values[0]})\nColor: {route['route_color'].values[0]}"
     else:
@@ -52,47 +44,31 @@ def get_schedule_info(station_name):
     else:
         return "No such station found."
 
-# Tokenization function
-def tokenize_input(user_input):
-    return word_tokenize(user_input.lower())
+# Step 3: Define chatbot patterns
+patterns = [
+    (r'hi|hello|hey', ['Hello! How can I assist you today with the Delhi Metro?']),
+    (r'help', ['I can assist with station details, route information, and schedules. What would you like to know?']),
+    (r'(?i)(route|line) (.*)', [get_route_info]),  
+    (r'(?i)(station|stop) (.*)', [get_station_info]),  
+    (r'(?i)(schedule|timing) (.*)', [get_schedule_info]),  
+    (r'(bye|exit)', ['Goodbye! Have a nice day!'])
+]
 
-# Synonym handling using WordNet
-def get_synonyms(word):
-    synonyms = set()
-    for syn in wordnet.synsets(word):
-        for lemma in syn.lemmas():
-            synonyms.add(lemma.name().lower())
-    return synonyms
-
-# Intent classification
-def classify_intent(tokens):
-    route_keywords = get_synonyms("route") | {"line"}
-    station_keywords = get_synonyms("station") | {"stop"}
-    schedule_keywords = get_synonyms("schedule") | {"timing", "time"}
-
-    if any(token in route_keywords for token in tokens):
-        return "route_info"
-    elif any(token in station_keywords for token in tokens):
-        return "station_info"
-    elif any(token in schedule_keywords for token in tokens):
-        return "schedule_info"
-    return "unknown"
-
-# Chatbot response based on intent
+# Step 4: Initialize the chatbot
 def chatbot_response(user_input):
-    tokens = tokenize_input(user_input)
-    intent = classify_intent(tokens)
+    for pattern, responses in patterns:
+        match = re.search(pattern, user_input)
+        if match:
+            matched_input = match.group(2).strip()
+            if responses[0] == get_route_info:
+                return get_route_info(matched_input)
+            elif responses[0] == get_station_info:
+                return get_station_info(matched_input)
+            elif responses[0] == get_schedule_info:
+                return get_schedule_info(matched_input)
+    return "Sorry, I didn't understand that. Please try asking something else."
 
-    if intent == "route_info":
-        return get_route_info(' '.join(tokens))
-    elif intent == "station_info":
-        return get_station_info(' '.join(tokens))
-    elif intent == "schedule_info":
-        return get_schedule_info(' '.join(tokens))
-    else:
-        return "Sorry, I didn't understand that. You can ask about metro routes, station details, or schedules."
-
-# Flask app for the chatbot
+# Step 5: Flask app for the chatbot
 app = Flask(__name__)
 
 @app.route('/chat', methods=['POST'])
@@ -100,10 +76,10 @@ def chat():
     user_input = request.json.get('user_input')
     if not user_input:
         return jsonify({"error": "No input provided"}), 400
-
+    
     bot_response = chatbot_response(user_input)
     return jsonify({"response": bot_response})
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Render dynamically assigns the port
-    app.run(host='0.0.0.0', port=port, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)  
